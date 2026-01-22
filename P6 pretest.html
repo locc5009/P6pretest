@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chinese Vocabulary Assessment (30 Qs)</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 90%; max-width: 600px; text-align: center; }
+        h1 { color: #333; margin-bottom: 20px; }
+        .btn { background-color: #007bff; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 5px; cursor: pointer; margin-top: 20px; transition: background 0.3s; }
+        .btn:hover { background-color: #0056b3; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        input[type="text"] { padding: 10px; font-size: 16px; width: 80%; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 4px; }
+        
+        .question-card, .result-card { display: none; }
+        .chinese-word { font-size: 48px; color: #d32f2f; margin: 20px 0; font-weight: bold; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .option-btn { background-color: #e9ecef; border: 1px solid #ced4da; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 16px; transition: all 0.2s; }
+        .option-btn:hover { background-color: #dfe4ea; transform: translateY(-2px); }
+        
+        .progress-bar { width: 100%; background-color: #e0e0e0; height: 10px; border-radius: 5px; margin-bottom: 20px; overflow: hidden; }
+        .progress-fill { height: 100%; background-color: #007bff; width: 0%; transition: width 0.3s; }
+        .status-msg { margin-top:15px; font-weight:bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="login-screen">
+        <h1>Mandarin Assessment</h1>
+        <p>Please enter your name to begin.</p>
+        <input type="text" id="student-name" placeholder="Student Name (Full Name)">
+        <br>
+        <button class="btn" onclick="startQuiz()">Start Assessment</button>
+    </div>
+
+    <div class="container question-card" id="quiz-screen">
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        <h2 id="question-type-text">Select the correct Pinyin</h2>
+        <div class="chinese-word" id="word-display"></div>
+        <div class="options-grid" id="options-container"></div>
+    </div>
+
+    <div class="container result-card" id="result-screen">
+        <h1>Assessment Complete!</h1>
+        <div style="font-size: 24px; margin: 20px 0; color: #28a745; font-weight: bold;" id="final-score"></div>
+        <p>Click "Submit" to send your score to the teacher.</p>
+        
+        <button id="submit-btn" class="btn" onclick="submitToGoogleSheet()">Submit Score to Teacher</button>
+        <p id="status-message" class="status-msg"></p>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // PASTE YOUR GOOGLE SCRIPT URL BETWEEN THE QUOTES BELOW
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOH14fjUJK9Wh8tYMMC7ZAGqOrI7RDyT9rdkMjpDa0JMTAguYkrzjohvujmq4ysZp8/exec"; 
+
+        // --- VOCABULARY DATA ---
+        const vocabData = [
+            { char: "尊敬", pinyin: "zūn jìng", mean: "Respect/Honor" },
+            { char: "后悔", pinyin: "hòu huǐ", mean: "Regret" },
+            { char: "感动", pinyin: "gǎn dòng", mean: "Moved/Touched" },
+            { char: "疲倦", pinyin: "pí juàn", mean: "Tired/Weary" },
+            { char: "骄傲", pinyin: "jiāo ào", mean: "Proud/Arrogant" },
+            { char: "紧张", pinyin: "jǐn zhāng", mean: "Nervous" },
+            { char: "失望", pinyin: "shī wàng", mean: "Disappointed" },
+            { char: "愉快", pinyin: "yú kuài", mean: "Happy/Cheerful" },
+            { char: "惭愧", pinyin: "cán kuì", mean: "Ashamed" },
+            { char: "诚实", pinyin: "chéng shí", mean: "Honest" },
+            { char: "勇敢", pinyin: "yǒng gǎn", mean: "Brave" },
+            { char: "坚持", pinyin: "jiān chí", mean: "Persist/Insist" },
+            { char: "负责", pinyin: "fù zé", mean: "Responsible" },
+            { char: "耐心", pinyin: "nài xīn", mean: "Patience" },
+            { char: "珍惜", pinyin: "zhēn xī", mean: "Cherish/Treasure" },
+            { char: "善良", pinyin: "shàn liáng", mean: "Kind-hearted" },
+            { char: "孝顺", pinyin: "xiào shùn", mean: "Filial Piety" },
+            { char: "首先", pinyin: "shǒu xiān", mean: "First of all" },
+            { char: "接着", pinyin: "jiē zhe", mean: "Next/Following" },
+            { char: "然后", pinyin: "rán hòu", mean: "Then/After that" },
+            { char: "最后", pinyin: "zuì hòu", mean: "Finally/Last" },
+            { char: "终于", pinyin: "zhōng yú", mean: "Finally (at last)" },
+            { char: "突然", pinyin: "tū rán", mean: "Suddenly" },
+            { char: "立刻", pinyin: "lì kè", mean: "Immediately" },
+            { char: "慢慢", pinyin: "màn màn", mean: "Slowly" },
+            { char: "因为", pinyin: "yīn wèi", mean: "Because" },
+            { char: "所以", pinyin: "suǒ yǐ", mean: "Therefore/So" },
+            { char: "如果", pinyin: "rú guǒ", mean: "If" },
+            { char: "虽然", pinyin: "suī rán", mean: "Although" },
+            { char: "但是", pinyin: "dàn shì", mean: "But/However" },
+            { char: "认为", pinyin: "rèn wéi", mean: "Think/Consider" },
+            { char: "觉得", pinyin: "jué de", mean: "Feel/Think" },
+            { char: "发现", pinyin: "fā xiàn", mean: "Discover" },
+            { char: "责任", pinyin: "zé rèn", mean: "Responsibility" },
+            { char: "安全", pinyin: "ān quán", mean: "Safety/Safe" },
+            { char: "遵守", pinyin: "zūn shǒu", mean: "Comply with/Abide by" },
+            { char: "规则", pinyin: "guī zé", mean: "Rule/Regulation" },
+            { char: "帮助", pinyin: "bāng zhù", mean: "Help/Assist" },
+            { char: "合作", pinyin: "hé zuò", mean: "Cooperate" },
+            { char: "保护", pinyin: "bǎo hù", mean: "Protect" },
+            { char: "环境", pinyin: "huán jìng", mean: "Environment" }
+        ];
+
+        let studentName = "";
+        let currentQuestion = 0;
+        let score = 0;
+        let quizData = [];
+        let mistakes = []; // Array to store wrong answers
+        
+        const MAX_QUESTIONS = 30;
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function startQuiz() {
+            const nameInput = document.getElementById('student-name').value;
+            if(!nameInput.trim()) { alert("Please enter your name."); return; }
+            studentName = nameInput;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('quiz-screen').style.display = 'block';
+            generateQuestions();
+            loadQuestion();
+        }
+
+        function generateQuestions() {
+            let shuffledVocab = [...vocabData];
+            shuffleArray(shuffledVocab);
+            const limit = Math.min(MAX_QUESTIONS, shuffledVocab.length);
+            for(let i=0; i<limit; i++) {
+                const item = shuffledVocab[i];
+                const type = Math.random() < 0.5 ? 0 : 1; 
+                let distractors = [];
+                while(distractors.length < 3) {
+                    let randomItem = vocabData[Math.floor(Math.random() * vocabData.length)];
+                    if(randomItem.char !== item.char && !distractors.includes(randomItem)) distractors.push(randomItem);
+                }
+                quizData.push({
+                    word: item.char,
+                    correct: type === 0 ? item.pinyin : item.mean,
+                    type: type === 0 ? "Select the correct Pinyin" : "Select the correct Meaning",
+                    options: shuffleOptions([
+                        type === 0 ? item.pinyin : item.mean,
+                        type === 0 ? distractors[0].pinyin : distractors[0].mean,
+                        type === 0 ? distractors[1].pinyin : distractors[1].mean,
+                        type === 0 ? distractors[2].pinyin : distractors[2].mean
+                    ])
+                });
+            }
+        }
+
+        function shuffleOptions(arr) { return arr.sort(() => Math.random() - 0.5); }
+
+        function loadQuestion() {
+            if(currentQuestion >= quizData.length) { finishQuiz(); return; }
+            const q = quizData[currentQuestion];
+            document.getElementById('question-type-text').innerText = q.type;
+            document.getElementById('word-display').innerText = q.word;
+            const optionsDiv = document.getElementById('options-container');
+            optionsDiv.innerHTML = "";
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(opt, q.correct);
+                optionsDiv.appendChild(btn);
+            });
+            document.getElementById('progress').style.width = ((currentQuestion) / quizData.length) * 100 + "%";
+        }
+
+        function checkAnswer(selected, correct) {
+            if(selected === correct) {
+                score++;
+            } else {
+                // Track the mistake (save the Chinese word)
+                mistakes.push(quizData[currentQuestion].word);
+            }
+            currentQuestion++;
+            loadQuestion();
+        }
+
+        function finishQuiz() {
+            document.getElementById('quiz-screen').style.display = 'none';
+            document.getElementById('result-screen').style.display = 'block';
+            document.getElementById('final-score').innerText = `${score} / ${quizData.length}`;
+        }
+
+        function submitToGoogleSheet() {
+            if(SCRIPT_URL.includes("PASTE_YOUR")) {
+                alert("Error: The teacher has not set up the Google Script URL yet.");
+                return;
+            }
+
+            const btn = document.getElementById('submit-btn');
+            const msg = document.getElementById('status-message');
+            btn.disabled = true;
+            btn.innerText = "Sending...";
+
+            // Prepare the comma-separated list of mistakes
+            const mistakesString = mistakes.length > 0 ? mistakes.join(", ") : "None";
+
+            const payload = {
+                name: studentName,
+                score: score,
+                total: quizData.length,
+                percent: Math.round((score/quizData.length)*100) + "%",
+                mistakes: mistakesString // Sending the wrong answers
+            };
+
+            fetch(SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                msg.innerText = "✅ Score sent successfully!";
+                msg.style.color = "green";
+                btn.innerText = "Sent";
+            }).catch(err => {
+                console.error(err);
+                msg.innerText = "❌ Error sending score. Please check internet connection.";
+                msg.style.color = "red";
+                btn.disabled = false;
+                btn.innerText = "Try Again";
+            });
+        }
+    </script>
+</body>
+</html>
